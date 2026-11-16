@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home as HomeIcon, HelpCircle, LogOut, Menu, MessageCircle, Package, Settings, Sparkles, Users, X } from 'lucide-react';
+import { Home as HomeIcon, HelpCircle, LogOut, Menu, MessageCircle, Package, Settings, ShoppingBag, Sparkles, Users, X } from 'lucide-react';
 import { useState } from 'react';
 
 const NAV_ITEMS = [
@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: '/products', label: 'Products', icon: Package },
   { to: '/faqs', label: 'FAQs', icon: HelpCircle },
   { to: '/leads', label: 'Leads', icon: Users },
+  { to: '/orders', label: 'Orders', icon: ShoppingBag },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 

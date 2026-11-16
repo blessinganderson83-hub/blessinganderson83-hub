@@ -6,6 +6,7 @@ import SmartReply from '@/pages/SmartReply';
 import Products from '@/pages/Products';
 import Faqs from '@/pages/Faqs';
 import Leads from '@/pages/Leads';
+import Orders from '@/pages/Orders';
 import Settings from '@/pages/Settings';
 
 export default function App() {
@@ -50,6 +51,14 @@ export default function App() {
           element={
             <Layout>
               <Leads />
+            </Layout>
+          }
+        />
+        <Route
+          path="/orders"
+          element={
+            <Layout>
+              <Orders />
             </Layout>
           }
         />
