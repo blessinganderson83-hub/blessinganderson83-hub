@@ -30,6 +30,25 @@ export interface Lead {
   created_at: string;
 }
 
+export type OrderStatus = 'pending' | 'confirmed' | 'delivered' | 'cancelled';
+
+export interface Order {
+  id: string;
+  customer_name: string;
+  phone: string | null;
+  product_id: string | null;
+  product_name: string;
+  unit_price: number;
+  quantity: number;
+  total: number;
+  status: OrderStatus;
+  lead_id: string | null;
+  notes: string | null;
+  is_demo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface BusinessSettings {
   businessName: string;
   greeting: string;

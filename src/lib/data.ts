@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from './supabase';
-import type { Faq, Lead, Product } from './types';
+import type { Faq, Lead, Order, Product } from './types';
 
-function useTable<T>(table: 'products' | 'faqs' | 'leads') {
+function useTable<T>(table: 'products' | 'faqs' | 'leads' | 'orders') {
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,3 +31,4 @@ function useTable<T>(table: 'products' | 'faqs' | 'leads') {
 export const useProducts = () => useTable<Product>('products');
 export const useFaqs = () => useTable<Faq>('faqs');
 export const useLeads = () => useTable<Lead>('leads');
+export const useOrders = () => useTable<Order>('orders');
