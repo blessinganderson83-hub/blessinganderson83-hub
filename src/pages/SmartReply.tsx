@@ -130,11 +130,16 @@ export default function SmartReply() {
               <Package className="h-3.5 w-3.5 shrink-0 text-[#128C7E]" />
               <span className="font-medium">Quoting from your catalogue:</span>
               {quotedProducts.map((p) => (
-                <span
-                  key={p.id}
-                  className="rounded-full bg-white border border-[#128C7E]/25 px-2 py-0.5 font-medium text-[#128C7E]"
-                >
-                  {p.name}
+                <span key={p.id} className="inline-flex items-center gap-1.5">
+                  <span className="rounded-full bg-white border border-[#128C7E]/25 px-2 py-0.5 font-medium text-[#128C7E]">
+                    {p.name}
+                  </span>
+                  <Link
+                    to={`/orders?product=${encodeURIComponent(p.name)}`}
+                    className="font-medium text-[#128C7E] underline underline-offset-2"
+                  >
+                    Create order
+                  </Link>
                 </span>
               ))}
             </div>
