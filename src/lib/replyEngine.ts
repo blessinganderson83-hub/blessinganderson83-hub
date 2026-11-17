@@ -31,8 +31,9 @@ interface RuleContext {
 const naira = (n: number) =>
   '₦' + Number(n).toLocaleString('en-NG', { maximumFractionDigits: 2 });
 
-const DEFAULT_DELIVERY =
-  'We deliver nationwide. Delivery within Lagos takes 1-2 working days, and 3-5 working days for other states. Delivery fees depend on your location and the courier you choose.';
+const DELIVERY_INTENT = /\b(deliver|delivery|ship|shipping|dispatch|pickup|pick ?up|transport)\b/;
+const PAYMENT_INTENT = /\b(pay|payment|transfer|card|pos|deposit|instal ?ment)\b/;
+const BULK_INTENT = /\b(bulk|wholesale|discount|dozen|carton|quantity)\b/;
 
 /** Words in a product name that appear in the customer's message. */
 function matchProducts(text: string, products: Product[]): Product[] {
@@ -44,16 +45,65 @@ function matchProducts(text: string, products: Product[]): Product[] {
     .slice(0, 2);
 }
 
-/** FAQs whose question words appear in the customer's message. */
+/** FAQs whose question words appear in the customer's message, most relevant first. */
 function matchFaqs(text: string, faqs: Faq[]): Faq[] {
-  return faqs.filter((f) => {
-    const words = f.question
-      .toLowerCase()
-      .replace(/[^\w\s]/g, '')
-      .split(/\s+/)
-      .filter((w) => w.length > 3);
-    return words.some((w) => text.includes(w));
-  });
+  return faqs
+    .map((f) => {
+      const words = f.question
+        .toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .split(/\s+/)
+        .filter((w) => w.length > 3);
+      return { f, score: words.filter((w) => text.includes(w)).length };
+    })
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map((s) => s.f);
+}
+
+/** The single most relevant saved FAQ for a message, optionally narrowed to an intent. */
+export function findBestFaq(text: string, faqs: Faq[], intent?: RegExp): Faq | null {
+  const scored = faqs
+    .map((f) => {
+      const q = f.question.toLowerCase().replace(/[^\w\s]/g, '');
+      const words = q.split(/\s+/).filter((w) => w.length > 3);
+      let score = words.filter((w) => text.includes(w)).length;
+      if (intent && intent.test(q)) score += 1;
+      return { f, score };
+    })
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return scored[0]?.f ?? null;
+}
+
+/**
+ * Topics the message asks about that have no saved answer anywhere — shown to the
+ * business owner so they can add the missing information themselves.
+ */
+export function missingInfoTopics(
+  message: string,
+  faqs: Faq[],
+  settings: RuleContext['settings']
+): string[] {
+  const text = message.toLowerCase();
+  const out: string[] = [];
+  if (DELIVERY_INTENT.test(text) && !findBestFaq(text, faqs, DELIVERY_INTENT) && !settings.deliveryNote) {
+    out.push(
+      'delivery fees and timelines — save a delivery FAQ in the FAQ Manager, or add a delivery note in Settings'
+    );
+  }
+  if (PAYMENT_INTENT.test(text) && !findBestFaq(text, faqs, PAYMENT_INTENT)) {
+    out.push('accepted payment methods — save a payment FAQ in the FAQ Manager');
+  }
+  if (BULK_INTENT.test(text) && !findBestFaq(text, faqs, BULK_INTENT)) {
+    out.push('bulk or wholesale discounts — save a discount FAQ in the FAQ Manager');
+  }
+  return out;
+}
+
+/** Saved delivery information for a message, or '' when nothing is on file. */
+function deliveryInfoFor(text: string, ctx: RuleContext): string {
+  return findBestFaq(text, ctx.faqs, DELIVERY_INTENT)?.answer || ctx.settings.deliveryNote || '';
 }
 
 /**
@@ -108,21 +158,26 @@ export function generateSuggestions(
     }
   }
 
-  if (/\b(deliver|delivery|ship|shipping|dispatch|pickup|pick ?up|transport)\b/.test(text)) {
+  if (DELIVERY_INTENT.test(text)) {
     out.push(deliverySuggestions(text, ctx, wrapped)[0]);
   }
 
-  if (/\b(pay|payment|transfer|card|pos|on delivery|deposit)\b/.test(text)) {
+  if (PAYMENT_INTENT.test(text)) {
     out.push(paymentSuggestions(text, ctx, wrapped)[0]);
   }
 
   if (/\b(bulk|wholesale|discount|cheap|reduce|negotiate|quantity|dozen)\b/.test(text)) {
-    out.push(
-      wrapped(
-        'Yes, we offer discounts on bulk orders! For 5+ pieces you get 10% off, and for 20+ pieces you get 15% off. How many pieces would you need?',
-        'Price enquiry'
-      )
-    );
+    const bulkFaq = findBestFaq(text, ctx.faqs, BULK_INTENT);
+    if (bulkFaq) {
+      out.push(wrapped(bulkFaq.answer, 'Price enquiry — from your saved FAQ'));
+    } else {
+      out.push(
+        wrapped(
+          'Thank you! Let me confirm the best price we can offer for the quantity you need and get right back to you.',
+          'Price enquiry — needs your input'
+        )
+      );
+    }
   }
 
   for (const f of matchedFaqs.slice(0, 2)) {
@@ -185,10 +240,11 @@ function productEnquirySuggestions(
     const list = matchedProducts
       .map((p) => `• ${p.name} — ${naira(p.price)}${p.stock ? ` (${p.stock})` : ''}`)
       .join('\n');
+    const delivery = deliveryInfoFor(text, ctx);
     out.push(
       wrapped(
-        `Thank you for your interest! Here are the details of what you asked about:\n\n${list}\n\n${
-          ctx.settings.deliveryNote || DEFAULT_DELIVERY
+        `Thank you for your interest! Here are the details of what you asked about:\n\n${list}${
+          delivery ? `\n\n${delivery}` : ''
         }`,
         'Product enquiry'
       )
@@ -219,7 +275,7 @@ function productEnquirySuggestions(
 }
 
 function priceSuggestions(
-  _text: string,
+  text: string,
   ctx: RuleContext,
   wrapped: Build,
   matchedProducts: Product[]
@@ -229,15 +285,16 @@ function priceSuggestions(
     const list = matchedProducts
       .map((p) => `• ${p.name} — ${naira(p.price)}${p.stock ? ` (${p.stock})` : ''}`)
       .join('\n');
+    const delivery = deliveryInfoFor(text, ctx);
     out.push(
       wrapped(
-        `Here are our current prices:\n\n${list}\n\n${ctx.settings.deliveryNote || DEFAULT_DELIVERY}`,
+        `Here are our current prices:\n\n${list}${delivery ? `\n\n${delivery}` : ''}`,
         'Price enquiry'
       )
     );
     out.push(
       wrapped(
-        `Our price for ${matchedProducts[0].name} is ${naira(matchedProducts[0].price)}. We also give discounts for bulk purchases — 10% off from 5 pieces and 15% off from 20 pieces. How many would you like?`,
+        `Our price for ${matchedProducts[0].name} is ${naira(matchedProducts[0].price)}. Let me know how many pieces you need and I will confirm the total, including any discount that applies.`,
         'Price enquiry'
       )
     );
@@ -258,28 +315,27 @@ function priceSuggestions(
   return out;
 }
 
-function deliverySuggestions(_text: string, ctx: RuleContext, wrapped: Build): Suggestion[] {
-  const note = ctx.settings.deliveryNote || DEFAULT_DELIVERY;
+function deliverySuggestions(text: string, ctx: RuleContext, wrapped: Build): Suggestion[] {
+  const faq = findBestFaq(text, ctx.faqs, DELIVERY_INTENT);
+  if (faq) return [wrapped(faq.answer, 'Delivery enquiry — from your saved FAQ')];
+  if (ctx.settings.deliveryNote) {
+    return [wrapped(ctx.settings.deliveryNote, 'Delivery enquiry')];
+  }
   return [
-    wrapped(note, 'Delivery enquiry'),
     wrapped(
-      `${note}\n\nOnce your order is confirmed, we will send you your tracking details so you can follow your parcel until it arrives.`,
-      'Delivery enquiry'
+      'Thank you for asking! Let me confirm the delivery options and cost for your location, and I will get back to you shortly.',
+      'Delivery enquiry — needs your input'
     ),
   ];
 }
 
-function paymentSuggestions(_text: string, ctx: RuleContext, wrapped: Build): Suggestion[] {
+function paymentSuggestions(text: string, ctx: RuleContext, wrapped: Build): Suggestion[] {
+  const faq = findBestFaq(text, ctx.faqs, PAYMENT_INTENT);
+  if (faq) return [wrapped(faq.answer, 'Payment enquiry — from your saved FAQ')];
   return [
     wrapped(
-      'We accept bank transfer, card payments and pay on delivery (within Lagos). Once you confirm your order, I will send the payment details. Thank you!',
-      'Payment enquiry'
-    ),
-    wrapped(
-      'Payment is easy! You can pay by bank transfer or with your ATM card. For orders within Lagos below ' +
-        naira(50000) +
-        ', pay on delivery is also available. Which option works best for you?',
-      'Payment enquiry'
+      'Thank you for asking! Let me confirm our payment options and send you the details right away.',
+      'Payment enquiry — needs your input'
     ),
   ];
 }

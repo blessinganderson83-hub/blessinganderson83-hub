@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useLeads } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import type { Lead, LeadStatus } from '@/lib/types';
@@ -10,9 +11,6 @@ const STATUS_OPTIONS: { value: LeadStatus; label: string; classes: string }[] = 
   { value: 'won', label: 'Won', classes: 'bg-green-100 text-green-700' },
   { value: 'closed', label: 'Closed', classes: 'bg-neutral-200 text-neutral-600' },
 ];
-
-const statusStyles = (s: LeadStatus) =>
-  STATUS_OPTIONS.find((o) => o.value === s)?.classes ?? 'bg-neutral-200 text-neutral-600';
 
 export default function Leads() {
   const { items, loading, error, refresh } = useLeads();
@@ -133,6 +131,13 @@ export default function Leads() {
                   {l.phone && <p className="text-sm text-neutral-500">{l.phone}</p>}
                 </div>
                 <div className="flex shrink-0 gap-2">
+                  <Link
+                    to={`/orders?lead=${l.id}`}
+                    className="btn-secondary px-3 py-2 text-xs"
+                    aria-label={`Create order for ${l.name}`}
+                  >
+                    Create order
+                  </Link>
                   <button className="btn-danger" onClick={() => setDeleteId(l.id)} aria-label={`Delete lead ${l.name}`}>
                     <Trash2 className="h-4 w-4" />
                   </button>

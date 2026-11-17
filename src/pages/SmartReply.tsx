@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import {
   generateSuggestions,
+  findBestFaq,
+  missingInfoTopics,
   CATEGORIES,
   type Category,
   type Suggestion,
@@ -34,6 +36,8 @@ export default function SmartReply() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [matchedFaq, setMatchedFaq] = useState<Faq | null>(null);
+  const [missingTopics, setMissingTopics] = useState<string[]>([]);
 
   useEffect(() => {
     supabase.from('faqs').select('*').then(({ data }) => setFaqs(data ?? []));
@@ -63,6 +67,9 @@ export default function SmartReply() {
     setEditIndex(null);
     // Brief delay so the loading state is visible; the engine is local and fast
     setTimeout(() => {
+      const text = message.toLowerCase();
+      setMatchedFaq(findBestFaq(text, faqs));
+      setMissingTopics(missingInfoTopics(message, faqs, settings));
       setSuggestions(generateSuggestions(message, { products, faqs, settings }, category));
       setGenerating(false);
     }, 500);
@@ -74,6 +81,8 @@ export default function SmartReply() {
     setEditIndex(null);
     setError(null);
     setGenerating(false);
+    setMatchedFaq(null);
+    setMissingTopics([]);
     if (productParam) setSearchParams({}, { replace: true });
   };
 
@@ -206,6 +215,50 @@ export default function SmartReply() {
           </button>
         </div>
       </form>
+
+      {matchedFaq && !generating && (
+        <div className="mt-6 rounded-xl border border-neutral-200 bg-white p-4">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            <Bot className="h-4 w-4 text-[#128C7E]" />
+            Using your saved FAQ
+          </p>
+          <p className="mt-2 text-sm font-medium text-neutral-800">{matchedFaq.question}</p>
+          <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-neutral-600">
+            {matchedFaq.answer}
+          </p>
+          <Link
+            to="/faqs"
+            className="mt-2 inline-block text-xs font-medium text-[#128C7E] underline underline-offset-2"
+          >
+            Edit this in the FAQ Manager
+          </Link>
+        </div>
+      )}
+
+      {missingTopics.length > 0 && !generating && (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+            Missing information
+          </p>
+          <p className="mt-1 text-sm text-amber-800">
+            Replies could not quote details for: {missingTopics.join('; ')}. Add them so future
+            replies answer fully:
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-800">
+            {missingTopics.map((t) => (
+              <li key={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</li>
+            ))}
+          </ul>
+          <div className="mt-2 flex gap-3 text-xs font-medium">
+            <Link to="/faqs" className="text-amber-900 underline underline-offset-2">
+              Add an FAQ
+            </Link>
+            <Link to="/settings" className="text-amber-900 underline underline-offset-2">
+              Open Settings
+            </Link>
+          </div>
+        </div>
+      )}
 
       {generating && (
         <div className="mt-8 flex items-center justify-center gap-3 rounded-xl border border-neutral-200 bg-white p-10 text-neutral-500">
