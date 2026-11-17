@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeads } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
+import { toWhatsAppNumber, whatsappUrl } from '@/lib/whatsapp';
 import type { Lead, LeadStatus } from '@/lib/types';
-import { Inbox, Loader2, Plus, Trash2, User, X } from 'lucide-react';
+import { Inbox, Loader2, MessageCircle, Plus, Trash2, User, X } from 'lucide-react';
 
 const STATUS_OPTIONS: { value: LeadStatus; label: string; classes: string }[] = [
   { value: 'new', label: 'New', classes: 'bg-blue-100 text-blue-700' },
@@ -131,6 +132,20 @@ export default function Leads() {
                   {l.phone && <p className="text-sm text-neutral-500">{l.phone}</p>}
                 </div>
                 <div className="flex shrink-0 gap-2">
+                  {toWhatsAppNumber(l.phone ?? '') && (
+                    <a
+                      href={whatsappUrl(
+                        toWhatsAppNumber(l.phone ?? ''),
+                        `Hello ${l.name}, thank you for contacting us!`
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-secondary px-3 py-2 text-xs"
+                      aria-label={`Open WhatsApp chat with ${l.name}`}
+                    >
+                      <MessageCircle className="h-4 w-4 text-[#25D366]" />
+                    </a>
+                  )}
                   <Link
                     to={`/orders?lead=${l.id}`}
                     className="btn-secondary px-3 py-2 text-xs"
@@ -146,6 +161,15 @@ export default function Leads() {
               <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-neutral-600">
                 {l.message}
               </p>
+              <div className="mt-3">
+                <Link
+                  to={`/reply?lead=${l.id}`}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-[#128C7E] underline underline-offset-2"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  Draft a reply in Smart Reply
+                </Link>
+              </div>
               <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-neutral-100 pt-3">
                 {STATUS_OPTIONS.map((o) => (
                   <button

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useProducts } from '@/lib/data';
+import { useProducts, useLeads } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
+import { toWhatsAppNumber, whatsappUrl } from '@/lib/whatsapp';
 import {
   Bot,
   Check,
@@ -11,6 +12,7 @@ import {
   Package,
   Pencil,
   Sparkles,
+  MessageCircle,
 } from 'lucide-react';
 import {
   generateSuggestions,
@@ -25,6 +27,7 @@ import type { Faq } from '@/lib/types';
 
 export default function SmartReply() {
   const { items: products } = useProducts();
+  const { items: leads } = useLeads();
   const [searchParams, setSearchParams] = useSearchParams();
   const productParam = searchParams.get('product') ?? '';
   const [settings] = useSettings();
@@ -38,10 +41,30 @@ export default function SmartReply() {
   const [error, setError] = useState<string | null>(null);
   const [matchedFaq, setMatchedFaq] = useState<Faq | null>(null);
   const [missingTopics, setMissingTopics] = useState<string[]>([]);
+  const [phoneMode, setPhoneMode] = useState<'lead' | 'manual'>('lead');
+  const [selectedLeadId, setSelectedLeadId] = useState('');
+  const [manualPhone, setManualPhone] = useState('');
+  const [waError, setWaError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.from('faqs').select('*').then(({ data }) => setFaqs(data ?? []));
   }, []);
+
+  const leadParam = searchParams.get('lead') ?? '';
+  useEffect(() => {
+    if (leadParam) {
+      setPhoneMode('lead');
+      setSelectedLeadId(leadParam);
+    }
+  }, [leadParam]);
+
+  // Preselect the first lead that has a usable WhatsApp number
+  useEffect(() => {
+    if (!selectedLeadId && leads.length > 0) {
+      const first = leads.find((l) => toWhatsAppNumber(l.phone ?? ''));
+      if (first) setSelectedLeadId(first.id);
+    }
+  }, [leads, selectedLeadId]);
 
   // Products from the catalogue whose names appear in the current message
   const quotedProducts = useMemo(() => {
@@ -55,6 +78,23 @@ export default function SmartReply() {
         .some((w) => w.length > 2 && text.includes(w))
     );
   }, [message, products]);
+
+  const selectedLead = leads.find((l) => l.id === selectedLeadId) ?? null;
+  const phoneRaw = phoneMode === 'manual' ? manualPhone : selectedLead?.phone ?? '';
+  const waNumber = useMemo(() => toWhatsAppNumber(phoneRaw), [phoneRaw]);
+
+  const openWhatsApp = (replyText: string) => {
+    if (!phoneRaw.trim()) {
+      setWaError('Add the customer\u2019s phone number first — pick a lead or type a number below.');
+      return;
+    }
+    if (!waNumber) {
+      setWaError('That phone number does not look valid. Use a full number, e.g. 0803 123 4567.');
+      return;
+    }
+    setWaError(null);
+    window.open(whatsappUrl(waNumber, replyText), '_blank', 'noopener,noreferrer');
+  };
 
   const handleGenerate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -324,10 +364,109 @@ export default function SmartReply() {
                     <Pencil className="h-3.5 w-3.5" />
                     {editIndex === i ? 'Done' : 'Edit'}
                   </button>
+                  <a
+                    href={whatsappUrl(waNumber && phoneRaw.trim() ? waNumber : null, s.text)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => {
+                      if (!phoneRaw.trim() || !waNumber) {
+                        e.preventDefault();
+                        openWhatsApp(s.text);
+                      }
+                    }}
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1fb357]"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    Open WhatsApp
+                  </a>
                 </div>
               </div>
             ))}
           </div>
+
+          <div className="mt-5 rounded-xl border border-neutral-200 bg-white p-4">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              <MessageCircle className="h-4 w-4 text-[#25D366]" />
+              Send via WhatsApp (you press send)
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPhoneMode('lead');
+                  setWaError(null);
+                }}
+                className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+                  phoneMode === 'lead'
+                    ? 'bg-[#128C7E] text-white shadow-sm'
+                    : 'border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100'
+                }`}
+              >
+                Pick from Leads
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPhoneMode('manual');
+                  setWaError(null);
+                }}
+                className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+                  phoneMode === 'manual'
+                    ? 'bg-[#128C7E] text-white shadow-sm'
+                    : 'border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100'
+                }`}
+              >
+                Type a number
+              </button>
+            </div>
+            {phoneMode === 'lead' ? (
+              leads.length > 0 ? (
+                <select
+                  aria-label="Pick a customer lead"
+                  className="input mt-3"
+                  value={selectedLeadId}
+                  onChange={(e) => {
+                    setSelectedLeadId(e.target.value);
+                    setWaError(null);
+                  }}
+                >
+                  <option value="">Choose a customer…</option>
+                  {leads.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                      {l.phone ? ` — ${l.phone}` : ' (no number saved)'}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="mt-3 text-sm text-neutral-500">
+                  No leads yet.{' '}
+                  <Link to="/leads" className="font-medium text-[#128C7E] underline underline-offset-2">
+                    Add one in Leads
+                  </Link>
+                </p>
+              )
+            ) : (
+              <input
+                type="tel"
+                inputMode="tel"
+                aria-label="Customer phone number"
+                className="input mt-3"
+                placeholder="e.g. 0803 123 4567 or +234 803 123 4567"
+                value={manualPhone}
+                onChange={(e) => {
+                  setManualPhone(e.target.value);
+                  setWaError(null);
+                }}
+              />
+            )}
+            {waError && <p className="error-text mt-2">{waError}</p>}
+            <p className="mt-2 text-xs text-neutral-400">
+              WhatsApp opens with your reply pre-filled. You review it and press send yourself —
+              nothing is sent automatically.
+            </p>
+          </div>
+
           <p className="mt-4 text-xs text-neutral-400">
             Replies are generated on this device. You copy and send them yourself in WhatsApp —
             nothing is sent automatically.
