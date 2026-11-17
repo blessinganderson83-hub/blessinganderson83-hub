@@ -23,6 +23,18 @@ function useTable<T>(table: 'products' | 'faqs' | 'leads' | 'orders') {
 
   useEffect(() => {
     refresh();
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    const timer = window.setInterval(refreshWhenVisible, 20000);
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
   }, [refresh]);
 
   return { items, loading, error, refresh };

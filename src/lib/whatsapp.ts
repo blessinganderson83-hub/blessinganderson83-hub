@@ -12,12 +12,14 @@ export function toWhatsAppNumber(raw: string): string | null {
   const explicitInternational = trimmed.startsWith('+') || digits.startsWith('00');
   if (digits.startsWith('00')) digits = digits.slice(2);
 
+  // A leading single 0 is the Nigerian trunk prefix, so such numbers must be valid Nigerian mobiles.
   const isNigerian =
-    digits.startsWith('234') || (!explicitInternational && /^0?[789]\d{9}$/.test(digits));
+    digits.startsWith('234') ||
+    (!explicitInternational && (digits.startsWith('0') || /^[789]\d{9}$/.test(digits)));
 
   if (isNigerian) {
     const national = (digits.startsWith('234') ? digits.slice(3) : digits).replace(/^0/, '');
-    return /^\d{10}$/.test(national) ? '234' + national : null;
+    return /^[789]\d{9}$/.test(national) ? '234' + national : null;
   }
 
   return /^\d{8,15}$/.test(digits) && (explicitInternational || digits.length >= 10) ? digits : null;

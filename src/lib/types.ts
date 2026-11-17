@@ -20,6 +20,22 @@ export interface Faq {
 
 export type LeadStatus = 'new' | 'replied' | 'won' | 'closed';
 
+/**
+ * Stored values stay as-is so existing records and the database constraint are untouched;
+ * only the labels shown to the user differ.
+ */
+export const LEAD_STATUS_META: Record<
+  LeadStatus,
+  { label: string; badge: string; bar: string }
+> = {
+  new: { label: 'New', badge: 'bg-blue-100 text-blue-700', bar: 'bg-blue-500' },
+  replied: { label: 'Interested', badge: 'bg-amber-100 text-amber-700', bar: 'bg-amber-500' },
+  won: { label: 'Converted', badge: 'bg-green-100 text-green-700', bar: 'bg-green-600' },
+  closed: { label: 'Lost', badge: 'bg-neutral-200 text-neutral-600', bar: 'bg-neutral-400' },
+};
+
+export const LEAD_STATUS_ORDER: LeadStatus[] = ['new', 'replied', 'won', 'closed'];
+
 export interface Lead {
   id: string;
   name: string;

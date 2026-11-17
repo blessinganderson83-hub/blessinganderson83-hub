@@ -4,15 +4,15 @@ import { useLeads } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import { toWhatsAppNumber } from '@/lib/whatsapp';
 import WhatsAppFollowUp from '@/components/WhatsAppFollowUp';
+import { LEAD_STATUS_META, LEAD_STATUS_ORDER } from '@/lib/types';
 import type { Lead, LeadStatus } from '@/lib/types';
 import { Inbox, Loader2, MessageCircle, Plus, Trash2, User, X } from 'lucide-react';
 
-const STATUS_OPTIONS: { value: LeadStatus; label: string; classes: string }[] = [
-  { value: 'new', label: 'New', classes: 'bg-blue-100 text-blue-700' },
-  { value: 'replied', label: 'Replied', classes: 'bg-amber-100 text-amber-700' },
-  { value: 'won', label: 'Won', classes: 'bg-green-100 text-green-700' },
-  { value: 'closed', label: 'Closed', classes: 'bg-neutral-200 text-neutral-600' },
-];
+const STATUS_OPTIONS = LEAD_STATUS_ORDER.map((value) => ({
+  value,
+  label: LEAD_STATUS_META[value].label,
+  classes: LEAD_STATUS_META[value].badge,
+}));
 
 export default function Leads() {
   const { items, loading, error, refresh } = useLeads();
@@ -104,7 +104,7 @@ export default function Leads() {
                 : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
             }`}
           >
-            {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)} ({counts[f]})
+            {f === 'all' ? 'All' : LEAD_STATUS_META[f].label} ({counts[f]})
           </button>
         ))}
       </div>

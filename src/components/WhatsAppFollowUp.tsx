@@ -8,6 +8,22 @@ export function suggestedFollowUp(lead: Lead): string {
   return `Hello ${firstName}, this is a follow-up on your enquiry. Do you still need help, or have any questions I can answer?`;
 }
 
+function followUpTemplates(lead: Lead): { label: string; text: string }[] {
+  const firstName = lead.name.trim().split(/\s+/)[0] || 'there';
+  return [
+    { label: 'Check in', text: suggestedFollowUp(lead) },
+    {
+      label: 'Ready to order?',
+      text: `Hello ${firstName}, just checking if you are ready to place your order. I can confirm the price and delivery details for you right away.`,
+    },
+    {
+      label: 'Thank you',
+      text: `Hello ${firstName}, thank you for your interest. Please let me know if there is anything else I can help you with.`,
+    },
+    { label: 'Blank', text: '' },
+  ];
+}
+
 async function copyText(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
@@ -84,6 +100,18 @@ export default function WhatsAppFollowUp({ lead, onClose }: { lead: Lead; onClos
               >
                 <RotateCcw className="h-3 w-3" /> Reset
               </button>
+            </div>
+            <div className="mb-2 flex flex-wrap gap-2" role="group" aria-label="Message templates">
+              {followUpTemplates(lead).map((t) => (
+                <button
+                  key={t.label}
+                  type="button"
+                  onClick={() => setMessage(t.text)}
+                  className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-600 hover:bg-neutral-100"
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
             <textarea
               id="wa-message"
