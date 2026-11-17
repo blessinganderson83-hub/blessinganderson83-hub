@@ -122,18 +122,18 @@ export default function Leads() {
         <div className="grid gap-4 md:grid-cols-2">
           {visible.map((l) => (
             <div key={l.id} className="card p-5">
-              <div className="flex items-start gap-3">
+              <div className="flex flex-wrap items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#128C7E]/10">
                   <User className="h-5 w-5 text-[#128C7E]" />
                 </div>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 basis-40">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-semibold text-neutral-900">{l.name}</p>
                     {l.is_demo && <span className="demo-badge">Demo data</span>}
                   </div>
                   {l.phone && <p className="text-sm text-neutral-500">{l.phone}</p>}
                 </div>
-                <div className="flex shrink-0 gap-2">
+                <div className="flex w-full gap-2 sm:ml-auto sm:w-auto sm:shrink-0">
                   <button
                     className="btn-secondary px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
                     onClick={() => setFollowUpLead(l)}
