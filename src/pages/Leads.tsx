@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeads } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
-import { toWhatsAppNumber, whatsappUrl } from '@/lib/whatsapp';
+import { toWhatsAppNumber } from '@/lib/whatsapp';
+import WhatsAppFollowUp from '@/components/WhatsAppFollowUp';
 import type { Lead, LeadStatus } from '@/lib/types';
 import { Inbox, Loader2, MessageCircle, Plus, Trash2, User, X } from 'lucide-react';
 
@@ -20,6 +21,7 @@ export default function Leads() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [followUpLead, setFollowUpLead] = useState<Lead | null>(null);
   const [filter, setFilter] = useState<LeadStatus | 'all'>('all');
 
   const save = async (ev: React.FormEvent) => {
@@ -132,20 +134,19 @@ export default function Leads() {
                   {l.phone && <p className="text-sm text-neutral-500">{l.phone}</p>}
                 </div>
                 <div className="flex shrink-0 gap-2">
-                  {toWhatsAppNumber(l.phone ?? '') && (
-                    <a
-                      href={whatsappUrl(
-                        toWhatsAppNumber(l.phone ?? ''),
-                        `Hello ${l.name}, thank you for contacting us!`
-                      )}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-secondary px-3 py-2 text-xs"
-                      aria-label={`Open WhatsApp chat with ${l.name}`}
-                    >
-                      <MessageCircle className="h-4 w-4 text-[#25D366]" />
-                    </a>
-                  )}
+                  <button
+                    className="btn-secondary px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                    onClick={() => setFollowUpLead(l)}
+                    disabled={!toWhatsAppNumber(l.phone ?? '')}
+                    title={toWhatsAppNumber(l.phone ?? '') ? 'WhatsApp follow-up' : 'No valid phone number saved'}
+                    aria-label={
+                      toWhatsAppNumber(l.phone ?? '')
+                        ? `WhatsApp follow-up with ${l.name}`
+                        : `No valid phone number saved for ${l.name}`
+                    }
+                  >
+                    <MessageCircle className="h-4 w-4 text-[#25D366]" />
+                  </button>
                   <Link
                     to={`/orders?lead=${l.id}`}
                     className="btn-secondary px-3 py-2 text-xs"
@@ -251,6 +252,10 @@ export default function Leads() {
             </form>
           </div>
         </div>
+      )}
+
+      {followUpLead && (
+        <WhatsAppFollowUp lead={followUpLead} onClose={() => setFollowUpLead(null)} />
       )}
 
       {deleteId && (
